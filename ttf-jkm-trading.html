@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTF/JKM 交易下单生成器 | Trading Order Builder</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #0f1419 0%, #1a2332 100%);
+            min-height: 100vh;
+            color: #e6f1ff;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            padding: 25px 0;
+            border-bottom: 1px solid rgba(100, 255, 218, 0.2);
+            margin-bottom: 25px;
+        }
+        
+        h1 {
+            font-size: 2rem;
+            background: linear-gradient(90deg, #64ffda, #00a8e8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            color: #8892b0;
+            font-size: 0.95rem;
+        }
+        
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 1100px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(100, 255, 218, 0.1);
+            border-radius: 16px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .card-title {
+            font-size: 1.1rem;
+            color: #64ffda;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 6px;
+            color: #a8b2d1;
+            font-size: 0.85rem;
+        }
+        
+        .input-wrapper {
+            display: flex;
+            gap: 10px;
+        }
+        
+        input[type="text"], input[type="number"], select {
+            padding: 10px 12px;
+            border: 1px solid rgba(100, 255, 218, 0.2);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            color: #e6f1ff;
+            font-size: 0.95rem;
+        }
+        
+        input[type="text"]:focus, input[type="number"]:focus, select:focus {
+            outline: none;
+            border-color: #64ffda;
+            box-shadow: 0 0 0 2px rgba(100, 255, 218, 0.1);
+        }
+        
+        select {
+            cursor: pointer;
+        }
+        
+        select option {
+            background: #1a2332;
+        }
+        
+        .contract-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .contract-item {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(100, 255, 218, 0.15);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .contract-item:hover {
+            border-color: #64ffda;
+            background: rgba(100, 255, 218, 0.05);
+        }
+        
+        .contract-item.selected {
+            border-color: #64ffda;
+            background: rgba(100, 255, 218, 0.15);
+        }
+        
+        .contract-code {
+            font-weight: 600;
+            color: #64ffda;
+            font-size: 0.95rem;
+        }
+        
+        .contract-price {
+            font-size: 0.8rem;
+            color: #8892b0;
+            margin-top: 4px;
+        }
+        
+        .lots-input {
+            width: 60px;
+            padding: 5px;
+            border: 1px solid rgba(100, 255, 218, 0.3);
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.3);
+            color: #fff;
+            text-align: center;
+            font-size: 0.85rem;
+            margin-top: 8px;
+        }
+        
+        .radio-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .radio-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            padding: 8px 15px;
+            border-radius: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(100, 255, 218, 0.1);
+            transition: all 0.2s;
+        }
+        
+        .radio-item:hover, .radio-item.active {
+            border-color: #64ffda;
+            background: rgba(100, 255, 218, 0.1);
+        }
+        
+        .radio-item input {
+            display: none;
+        }
+        
+        .generate-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(90deg, #64ffda, #00a8e8);
+            border: none;
+            border-radius: 10px;
+            color: #0a192f;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 20px;
+        }
+        
+        .generate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(100, 255, 218, 0.3);
+        }
+        
+        .output-section {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(100, 255, 218, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .output-label {
+            color: #64ffda;
+            font-size: 0.85rem;
+            margin-bottom: 10px;
+        }
+        
+        .output-text {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: #e6f1ff;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        
+        .copy-btn {
+            margin-top: 10px;
+            padding: 8px 20px;
+            background: rgba(100, 255, 218, 0.1);
+            border: 1px solid #64ffda;
+            border-radius: 6px;
+            color: #64ffda;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        
+        .copy-btn:hover {
+            background: rgba(100, 255, 218, 0.2);
+        }
+        
+        .avg-template {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .template-card {
+            background: rgba(100, 255, 218, 0.05);
+            border: 1px solid rgba(100, 255, 218, 0.15);
+            border-radius: 10px;
+            padding: 15px;
+        }
+        
+        .template-title {
+            color: #64ffda;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+        
+        .preset-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .preset-btn {
+            padding: 6px 12px;
+            border: 1px solid rgba(100, 255, 218, 0.2);
+            border-radius: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            color: #a8b2d1;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+        
+        .preset-btn:hover, .preset-btn.active {
+            border-color: #64ffda;
+            color: #64ffda;
+            background: rgba(100, 255, 218, 0.1);
+        }
+        
+        .price-curve {
+            overflow-x: auto;
+        }
+        
+        .curve-table {
+            width: 100%;
+            min-width: 600px;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        
+        .curve-table th, .curve-table td {
+            padding: 8px 10px;
+            text-align: center;
+            border-bottom: 1px solid rgba(100, 255, 218, 0.1);
+        }
+        
+        .curve-table th {
+            color: #64ffda;
+            font-weight: 500;
+            background: rgba(0, 0, 0, 0.2);
+        }
+        
+        .curve-table td {
+            color: #a8b2d1;
+        }
+        
+        .curve-table tr:hover td {
+            background: rgba(100, 255, 218, 0.05);
+        }
+        
+        .price-up { color: #64ffda; }
+        .price-down { color: #ff6b6b; }
+        
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+        }
+        
+        .section-divider {
+            height: 1px;
+            background: rgba(100, 255, 218, 0.1);
+            margin: 20px 0;
+        }
+        
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        @media (max-width: 600px) {
+            .two-col, .avg-template {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔥 TTF/JKM 交易下单生成器</h1>
+            <p class="subtitle">Natural Gas Trading Order Builder | 支持曲线报价 & 分月合约分布</p>
+        </header>
+
+        <div class="main-grid">
+            <!-- 左侧：参数设置 -->
+            <div>
+                <!-- 品种选择 -->
+                <div class="card">
+                    <div class="card-title">📊 交易品种 / Product</div>
+                    <div class="radio-group">
+                        <label class="radio-item active" onclick="selectProduct('tfu')">
+                            <input type="radio" name="product" value="tfu" checked>
+                            <span>TFU (TTF)</span>
+                        </label>
+                        <label class="radio-item" onclick="selectProduct('jkm')">
+                            <input type="radio" name="product" value="jkm">
+                            <span>JKM</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 触发条件 -->
+                <div class="card" style="margin-top: 15px;">
+                    <div class="card-title">⚡ 触发条件 / Trigger Condition</div>
+                    <div class="input-group">
+                        <label>When TTF/JKM @ Price</label>
+                        <div class="input-wrapper">
+                            <select id="triggerMonth">
+                                <option value="2604">2604 (Apr)</option>
+                                <option value="2605">2605 (May)</option>
+                                <option value="2606">2606 (Jun)</option>
+                                <option value="2607">2607 (Jul)</option>
+                                <option value="2608">2608 (Aug)</option>
+                                <option value="2609">2609 (Sep)</option>
+                                <option value="2610">2610 (Oct)</option>
+                                <option value="2611">2611 (Nov)</option>
+                                <option value="2612">2612 (Dec)</option>
+                                <option value="2701">2701 (Jan)</option>
+                                <option value="2702">2702 (Feb)</option>
+                                <option value="2703">2703 (Mar)</option>
+                            </select>
+                            <span style="color: #8892b0; display: flex; align-items: center;">@</span>
+                            <input type="number" id="triggerPrice" placeholder="53.5" step="0.01">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 买卖方向 -->
+                <div class="card" style="margin-top: 15px;">
+                    <div class="card-title">📈 买卖方向 / Side</div>
+                    <div class="radio-group">
+                        <label class="radio-item active" onclick="selectSide('sell')">
+                            <input type="radio" name="side" value="sell" checked>
+                            <span>Sell (卖出)</span>
+                        </label>
+                        <label class="radio-item" onclick="selectSide('buy')">
+                            <input type="radio" name="side" value="buy">
+                            <span>Buy (买入)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 合约选择 -->
+                <div class="card" style="margin-top: 15px;">
+                    <div class="card-title">📅 选择合约 / Select Contracts</div>
+                    <div class="checkbox-group" style="margin-bottom: 15px;">
+                        <label class="checkbox-item">
+                            <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                            <span>全选</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" id="selectQ" onchange="selectQuarter()">
+                            <span>季度合约</span>
+                        </label>
+                    </div>
+                    <div class="contract-grid" id="contractGrid">
+                        <!-- 合约由JS生成 -->
+                    </div>
+                </div>
+
+                <!-- 手数设置 -->
+                <div class="card" style="margin-top: 15px;">
+                    <div class="card-title">🔢 手数设置 / Lots Configuration</div>
+                    <div class="preset-buttons" style="margin-bottom: 15px;">
+                        <button class="preset-btn" onclick="setLotsPattern('equal')">均分</button>
+                        <button class="preset-btn" onclick="setLotsPattern('front')">前重</button>
+                        <button class="preset-btn" onclick="setLotsPattern('back')">后重</button>
+                        <button class="preset-btn" onclick="setLotsPattern('custom')">自定义</button>
+                    </div>
+                    <div id="lotsDistribution">
+                        <!-- 手数分布由JS生成 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：曲线数据 & 输出 -->
+            <div>
+                <!-- 价格曲线 -->
+                <div class="card price-curve">
+                    <div class="card-title">📈 价格曲线 / Price Curve (参考)</div>
+                    <table class="curve-table">
+                        <thead>
+                            <tr>
+                                <th>Month</th>
+                                <th>TTF</th>
+                                <th>TFU</th>
+                                <th>JKM</th>
+                                <th>JKM/TTF</th>
+                            </tr>
+                        </thead>
+                        <tbody id="curveTableBody">
+                            <!-- 数据由JS生成 -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 均价模板 -->
+                <div class="card" style="margin-top: 15px;">
+                    <div class="card-title">🎯 均价模板 / Average Price Templates</div>
+                    <div class="avg-template">
+                        <div class="template-card">
+                            <div class="template-title">快速设置手数</div>
+                            <div class="preset-buttons">
+                                <button class="preset-btn" onclick="quickSetLots(1)">1 lot</button>
+                                <button class="preset-btn" onclick="quickSetLots(2)">2 lots</button>
+                                <button class="preset-btn" onclick="quickSetLots(3)">3 lots</button>
+                                <button class="preset-btn" onclick="quickSetLots(5)">5 lots</button>
+                            </div>
+                        </div>
+                        <div class="template-card">
+                            <div class="template-title">常见策略</div>
+                            <div class="preset-buttons">
+                                <button class="preset-btn" onclick="loadTemplate('summer')">夏季卖出</button>
+                                <button class="preset-btn" onclick="loadTemplate('winter')">冬季买入</button>
+                                <button class="preset-btn" onclick="loadTemplate('spread')">跨期套利</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 生成结果 -->
+                <div class="card" style="margin-top: 15px;">
+                    <div class="card-title">✅ 下单内容 / Order Output</div>
+                    <button class="generate-btn" onclick="generateOrder()">🚀 生成下单指令</button>
+                    
+                    <div class="output-section">
+                        <div class="output-label">Generated Order:</div>
+                        <div class="output-text" id="orderOutput">点击上方按钮生成下单内容...</div>
+                        <button class="copy-btn" onclick="copyToClipboard()">📋 复制到剪贴板</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 曲线数据 (基于你提供的图片)
+        const curveData = [
+            { month: 'Apr', code: '2604', ttf: 51.635, tfu: 17.575, jkm: 16.800, jkmTtf: -0.875 },
+            { month: 'May', code: '2605', ttf: 49.675, tfu: 16.900, jkm: 20.400, jkmTtf: 3.500 },
+            { month: 'Jun', code: '2606', ttf: 47.580, tfu: 16.200, jkm: 18.450, jkmTtf: 2.250 },
+            { month: 'Jul', code: '2607', ttf: 45.300, tfu: 15.425, jkm: 16.175, jkmTtf: 0.750 },
+            { month: 'Aug', code: '2608', ttf: 43.590, tfu: 14.825, jkm: 15.275, jkmTtf: 0.450 },
+            { month: 'Sep', code: '2609', ttf: 42.980, tfu: 14.625, jkm: 14.850, jkmTtf: 0.225 },
+            { month: 'Oct', code: '2610', ttf: 42.845, tfu: 14.580, jkm: 14.775, jkmTtf: 0.200 },
+            { month: 'Nov', code: '2611', ttf: 42.425, tfu: 14.440, jkm: 14.600, jkmTtf: 0.150 },
+            { month: 'Dec', code: '2612', ttf: 41.625, tfu: 14.165, jkm: 14.450, jkmTtf: 0.275 },
+            { month: 'Jan', code: '2701', ttf: 40.475, tfu: 13.775, jkm: 14.025, jkmTtf: 0.250 },
+            { month: 'Q3', code: 'Q3', ttf: 44.000, tfu: 14.975, jkm: 15.450, jkmTtf: 0.475 },
+            { month: 'Q4', code: 'Q4', ttf: 42.325, tfu: 14.405, jkm: 14.600, jkmTtf: 0.200 }
+        ];
+
+        let selectedContracts = new Set();
+        let currentProduct = 'tfu';
+        let currentSide = 'sell';
+
+        // 初始化
+        function init() {
+            renderContractGrid();
+            renderCurveTable();
+            renderLotsDistribution();
+        }
+
+        // 渲染合约网格
+        function renderContractGrid() {
+            const grid = document.getElementById('contractGrid');
+            grid.innerHTML = curveData.map(item => `
+                <div class="contract-item" data-code="${item.code}" onclick="toggleContract('${item.code}')">
+                    <div class="contract-code">${item.code}</div>
+                    <div class="contract-price">TTF: ${item.ttf.toFixed(2)}</div>
+                    <input type="number" class="lots-input" id="lots-${item.code}" 
+                           placeholder="lots" value="" onclick="event.stopPropagation()">
+                </div>
+            `).join('');
+        }
+
+        // 渲染曲线表格
+        function renderCurveTable() {
+            const tbody = document.getElementById('curveTableBody');
+            tbody.innerHTML = curveData.map(item => `
+                <tr onclick="selectFromCurve('${item.code}')" style="cursor: pointer;">
+                    <td><strong>${item.month}</strong></td>
+                    <td>${item.ttf.toFixed(2)}</td>
+                    <td>${item.tfu.toFixed(2)}</td>
+                    <td>${item.jkm.toFixed(2)}</td>
+                    <td class="${item.jkmTtf >= 0 ? 'price-up' : 'price-down'}">${item.jkmTtf >= 0 ? '+' : ''}${item.jkmTtf.toFixed(3)}</td>
+                </tr>
+            `).join('');
+        }
+
+        // 渲染手数分布
+        function renderLotsDistribution() {
+            const container = document.getElementById('lotsDistribution');
+            container.innerHTML = '<p style="color: #8892b0; font-size: 0.85rem;">选择合约后设置手数，或使用快速设置</p>';
+        }
+
+        // 选择/取消合约
+        function toggleContract(code) {
+            const item = document.querySelector(`[data-code="${code}"]`);
+            if (selectedContracts.has(code)) {
+                selectedContracts.delete(code);
+                item.classList.remove('selected');
+            } else {
+                selectedContracts.add(code);
+                item.classList.add('selected');
+                // 默认手数为1
+                const input = document.getElementById(`lots-${code}`);
+                if (!input.value) input.value = 1;
+            }
+        }
+
+        // 从曲线选择
+        function selectFromCurve(code) {
+            toggleContract(code);
+        }
+
+        // 全选/取消
+        function toggleSelectAll() {
+            const checkboxes = document.querySelectorAll('.contract-item');
+            const allSelected = selectedContracts.size === curveData.length;
+            
+            if (allSelected) {
+                selectedContracts.clear();
+                checkboxes.forEach(item => {
+                    item.classList.remove('selected');
+                    const code = item.dataset.code;
+                    document.getElementById(`lots-${code}`).value = '';
+                });
+            } else {
+                curveData.forEach(item => {
+                    selectedContracts.add(item.code);
+                    const el = document.querySelector(`[data-code="${item.code}"]`);
+                    el.classList.add('selected');
+                    document.getElementById(`lots-${item.code}`).value = 1;
+                });
+            }
+        }
+
+        // 选择季度合约
+        function selectQuarter() {
+            const quarters = ['Q3', 'Q4'];
+            quarters.forEach(code => {
+                if (!selectedContracts.has(code)) {
+                    toggleContract(code);
+                }
+            });
+        }
+
+        // 选择品种
+        function selectProduct(product) {
+            currentProduct = product;
+            document.querySelectorAll('.radio-item').forEach((el, idx) => {
+                if ((product === 'tfu' && idx === 0) || (product === 'jkm' && idx === 1)) {
+                    el.classList.add('active');
+                } else if (idx < 2) {
+                    el.classList.remove('active');
+                }
+            });
+        }
+
+        // 选择方向
+        function selectSide(side) {
+            currentSide = side;
+            document.querySelectorAll('.radio-item').forEach((el, idx) => {
+                if ((side === 'sell' && idx === 2) || (side === 'buy' && idx === 3)) {
+                    el.classList.add('active');
+                } else if (idx >= 2 && idx < 4) {
+                    el.classList.remove('active');
+                }
+            });
+        }
+
+        // 快速设置手数
+        function quickSetLots(lots) {
+            selectedContracts.forEach(code => {
+                document.getElementById(`lots-${code}`).value = lots;
+            });
+        }
+
+        // 手数分布模式
+        function setLotsPattern(pattern) {
+            const codes = Array.from(selectedContracts);
+            if (codes.length === 0) return;
+            
+            codes.forEach((code, idx) => {
+                let lots = 1;
+                switch(pattern) {
+                    case 'equal':
+                        lots = 2;
+                        break;
+                    case 'front':
+                        lots = Math.max(1, 5 - idx);
+                        break;
+                    case 'back':
+                        lots = Math.min(5, idx + 1);
+                        break;
+                    case 'custom':
+                        lots = idx % 2 === 0 ? 3 : 2;
+                        break;
+                }
+                document.getElementById(`lots-${code}`).value = lots;
+            });
+        }
+
+        // 加载模板
+        function loadTemplate(template) {
+            selectedContracts.clear();
+            document.querySelectorAll('.contract-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            
+            switch(template) {
+                case 'summer':
+                    ['2607', '2608', '2609'].forEach(code => toggleContract(code));
+                    quickSetLots(2);
+                    selectSide('sell');
+                    break;
+                case 'winter':
+                    ['2611', '2612', '2701'].forEach(code => toggleContract(code));
+                    quickSetLots(3);
+                    selectSide('buy');
+                    break;
+                case 'spread':
+                    ['2607', '2612'].forEach(code => toggleContract(code));
+                    document.getElementById('lots-2607').value = 2;
+                    document.getElementById('lots-2612').value = 2;
+                    break;
+            }
+        }
+
+        // 生成下单指令
+        function generateOrder() {
+            const triggerMonth = document.getElementById('triggerMonth').value;
+            const triggerPrice = document.getElementById('triggerPrice').value || 'XX.XX';
+            
+            if (selectedContracts.size === 0) {
+                document.getElementById('orderOutput').textContent = '请先选择至少一个合约';
+                return;
+            }
+            
+            // 收集合约和手数
+            const contracts = [];
+            selectedContracts.forEach(code => {
+                const lots = document.getElementById(`lots-${code}`).value || 1;
+                contracts.push({ code, lots: parseInt(lots) });
+            });
+            
+            // 按月份排序
+            contracts.sort((a, b) => a.code.localeCompare(b.code));
+            
+            // 生成手数字符串
+            const lotsList = contracts.map(c => `${c.lots}lots`).join(' ');
+            const contractList = contracts.map(c => c.code).join(' ');
+            
+            // 构建订单
+            const order = `when ttf ${triggerMonth} @ ${triggerPrice}  55
+pls add ${currentSide} ${currentProduct} ${contractList}
+for  ${lotsList} each
+all screen gtd`;
+            
+            document.getElementById('orderOutput').textContent = order;
+        }
+
+        // 复制到剪贴板
+        function copyToClipboard() {
+            const text = document.getElementById('orderOutput').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.querySelector('.copy-btn');
+                btn.textContent = '✅ 已复制!';
+                setTimeout(() => btn.textContent = '📋 复制到剪贴板', 2000);
+            });
+        }
+
+        // 页面加载时初始化
+        init();
+    </script>
+</body>
+</html>
