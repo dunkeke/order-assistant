@@ -366,6 +366,33 @@
             grid-template-columns: 1fr 1fr;
             gap: 15px;
         }
+
+        .cost-result-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 0.85rem;
+        }
+
+        .cost-result-table th,
+        .cost-result-table td {
+            padding: 8px;
+            text-align: right;
+            border-bottom: 1px solid rgba(100, 255, 218, 0.1);
+        }
+
+        .cost-result-table th:first-child,
+        .cost-result-table td:first-child {
+            text-align: left;
+        }
+
+        .cost-up {
+            color: #ff6b6b;
+        }
+
+        .cost-down {
+            color: #64ffda;
+        }
         
         @media (max-width: 600px) {
             .two-col, .avg-template {
@@ -552,6 +579,34 @@
                     </div>
                     <button class="preset-btn" onclick="planLotsByTargetAverage()">根据目标均价自动分配</button>
                     <div class="status-text" id="plannerStatus"></div>
+                </div>
+
+                <div class="card" style="margin-top: 15px;">
+                    <div class="card-title">💰 分月成本测算 / Monthly Cost Estimator</div>
+                    <div class="two-col">
+                        <div class="input-group">
+                            <label>当前成本水平（你先录入）</label>
+                            <input type="number" id="currentCostLevel" step="0.001" placeholder="例如 14.800">
+                        </div>
+                        <div class="input-group">
+                            <label>目标价格来源</label>
+                            <select id="costTargetMode">
+                                <option value="curve">使用当前曲线（上传/OCR后自动更新）</option>
+                                <option value="manual">手动评估价格</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>手动评估价格（按月输入，可选）</label>
+                        <textarea id="manualPriceInput" rows="4" style="width: 100%; padding: 10px; border: 1px solid rgba(100, 255, 218, 0.2); border-radius: 8px; background: rgba(0, 0, 0, 0.3); color: #e6f1ff; resize: vertical;" placeholder="示例：\n2604=15.2\n2605=15.0\nQ3=14.9"></textarea>
+                        <p class="hint-text">格式支持 code=price、code:price 或 code 空格 price。未填写月份会自动回落到曲线价格。</p>
+                    </div>
+                    <button class="preset-btn" onclick="calculateMonthlyCostEstimate()">测算分月成本</button>
+                    <div class="status-text" id="costEstimatorStatus"></div>
+                    <div class="output-section" style="margin-top: 10px;">
+                        <div class="output-label">Cost Breakdown:</div>
+                        <div id="costEstimatorOutput" class="hint-text">选择合约并设置下单量后，点击“测算分月成本”。</div>
+                    </div>
                 </div>
 
                 <!-- 生成结果 -->
@@ -881,6 +936,104 @@
                 }
                 default: return 1;
             }
+        }
+
+        function parseManualPrices(text) {
+            return text
+                .split(/\r?\n/)
+                .map(line => line.trim())
+                .filter(Boolean)
+                .reduce((acc, line) => {
+                    const match = line.match(/^([A-Za-z0-9]{2,4})\s*(?:=|:|\s)\s*(-?\d+(?:\.\d+)?)$/);
+                    if (!match) return acc;
+                    const code = match[1].toUpperCase();
+                    const price = parseFloat(match[2]);
+                    if (!Number.isNaN(price)) acc[code] = price;
+                    return acc;
+                }, {});
+        }
+
+        function getSelectedContractsWithLots() {
+            return Array.from(selectedContracts)
+                .map(code => {
+                    const item = curveData.find(row => row.code === code);
+                    const lots = parseInt(document.getElementById(`lots-${code}`)?.value || '0', 10);
+                    return { ...item, code, lots: Number.isNaN(lots) ? 0 : lots };
+                })
+                .filter(item => item && item.lots > 0)
+                .sort((a, b) => a.code.localeCompare(b.code));
+        }
+
+        function calculateMonthlyCostEstimate() {
+            const statusEl = document.getElementById('costEstimatorStatus');
+            const outputEl = document.getElementById('costEstimatorOutput');
+            const currentCost = parseFloat(document.getElementById('currentCostLevel').value);
+            const mode = document.getElementById('costTargetMode').value;
+            const manualMap = parseManualPrices(document.getElementById('manualPriceInput').value);
+            const contracts = getSelectedContractsWithLots();
+
+            if (Number.isNaN(currentCost)) {
+                statusEl.textContent = '请先录入当前成本水平';
+                return;
+            }
+            if (!contracts.length) {
+                statusEl.textContent = '请先选择合约并录入有效下单量（lots > 0）';
+                return;
+            }
+
+            const rows = contracts.map(item => {
+                const curvePrice = getProductPrice(item);
+                const manualPrice = manualMap[item.code.toUpperCase()];
+                const targetPrice = mode === 'manual' && manualPrice !== undefined ? manualPrice : curvePrice;
+                const baseCost = item.lots * currentCost;
+                const targetCost = item.lots * targetPrice;
+                const diff = targetCost - baseCost;
+                return {
+                    code: item.code,
+                    lots: item.lots,
+                    targetPrice,
+                    baseCost,
+                    targetCost,
+                    diff
+                };
+            });
+
+            const totalLots = rows.reduce((sum, row) => sum + row.lots, 0);
+            const totalBase = rows.reduce((sum, row) => sum + row.baseCost, 0);
+            const totalTarget = rows.reduce((sum, row) => sum + row.targetCost, 0);
+            const totalDiff = totalTarget - totalBase;
+            const weightedTarget = totalTarget / totalLots;
+
+            const tableHtml = `
+                <table class="cost-result-table">
+                    <thead>
+                        <tr>
+                            <th>合约</th>
+                            <th>下单量</th>
+                            <th>目标价</th>
+                            <th>当前成本</th>
+                            <th>目标成本</th>
+                            <th>差额</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows.map(row => `
+                            <tr>
+                                <td>${row.code}</td>
+                                <td>${row.lots}</td>
+                                <td>${row.targetPrice.toFixed(3)}</td>
+                                <td>${row.baseCost.toFixed(3)}</td>
+                                <td>${row.targetCost.toFixed(3)}</td>
+                                <td class="${row.diff > 0 ? 'cost-up' : 'cost-down'}">${row.diff > 0 ? '+' : ''}${row.diff.toFixed(3)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+                <p class="hint-text">合计手数 ${totalLots}，目标加权均价 ${weightedTarget.toFixed(3)}，总成本差额 <span class="${totalDiff > 0 ? 'cost-up' : 'cost-down'}">${totalDiff > 0 ? '+' : ''}${totalDiff.toFixed(3)}</span></p>
+            `;
+
+            outputEl.innerHTML = tableHtml;
+            statusEl.textContent = `测算完成：按${mode === 'manual' ? '手动评估价格' : '上传/当前曲线价格'}计算`; 
         }
 
         function planLotsByTargetAverage() {
